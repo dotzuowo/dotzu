@@ -1,6 +1,7 @@
 ﻿# WinBoost: funciones importables, sin cambios al cargar el archivo.
 function WB-ReadCatalog {
- return @(Get-Content (Join-Path $PSScriptRoot 'Actions.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+ [object[]]$actions=Get-Content (Join-Path $PSScriptRoot 'Actions.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+ return $actions
 }
 function WB-ValidatePlan($plan,$catalog){
  if($null -eq $plan -or $null -eq $plan.PSObject.Properties['Schema'] -or $plan.Schema -ne 1){throw 'Formato de plan no valido.'}

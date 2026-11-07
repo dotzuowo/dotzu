@@ -15,7 +15,7 @@ New-Item -ItemType Directory -Path $run -Force | Out-Null
 $logPath=Join-Path $run 'activity.log'
 $statusPath=Join-Path $run 'status.json'
 $journalPath=Join-Path $run 'backup.json'
-$catalog=@(Get-Content (Join-Path $PSScriptRoot 'Catalog.json') -Raw | ConvertFrom-Json)
+[object[]]$catalog=Get-Content (Join-Path $PSScriptRoot 'Catalog.json') -Raw | ConvertFrom-Json
 $script:warnings=0;$script:step=0;$script:total=1;$script:freed=0L
 $script:journalWrites=0;$script:startedAt=[Diagnostics.Stopwatch]::StartNew();$script:inventoryCache=$null;
 $script:steps=@();$script:journal=$null;$script:rollback='No solicitado';$script:cancelPath=Join-Path $run 'cancel.request'

@@ -66,7 +66,7 @@ function Write-Report($phase,$message){
  $html+='<h2>Diario de preferencias</h2><table><tr><th>Valor</th><th>Original</th><th>Objetivo</th><th>Estado</th></tr>'+($changes -join '')+'</table>'
  $previewFile=Join-Path $run 'preview.json'
  if(Test-Path -LiteralPath $previewFile){
-  $preview=@(Get-Content -LiteralPath $previewFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+  [object[]]$preview=Get-Content -LiteralPath $previewFile -Raw -Encoding UTF8 | ConvertFrom-Json
   $html+='<h2>Vista previa: no aplicada</h2><table><tr><th>Ajuste</th><th>Actual</th><th>Objetivo</th></tr>'
   foreach($e in $preview){$html+='<tr><td>'+(& $enc $e.Ajuste)+'</td><td>'+(& $enc ($e.Antes | ConvertTo-Json -Compress))+'</td><td>'+(& $enc $e.Despues)+'</td></tr>'}
   $html+='</table>'

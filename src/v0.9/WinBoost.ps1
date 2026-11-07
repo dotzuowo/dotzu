@@ -68,7 +68,7 @@ try {
   exit $LASTEXITCODE
  }
  if($Mode -eq 'Restore' -and ($PresetPath -or $PSBoundParameters.ContainsKey('Profile'))){throw 'Restore usa el ultimo respaldo pendiente; no admite perfiles.'}
- $catalog=@(Get-Content (Join-Path $PSScriptRoot 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+ [object[]]$catalog=Get-Content (Join-Path $PSScriptRoot 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json
  . (Join-Path $PSScriptRoot 'ExtraFunctions.ps1')
  $cfg=$null
  if($Mode -ne 'Restore'){

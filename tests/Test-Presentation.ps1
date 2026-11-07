@@ -12,8 +12,9 @@ $window.Add_ContentRendered({
   $ui.NavModules.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   if($ui.ModulesPage.Visibility -ne 'Visible'){throw 'Navigation failed'}
   $ui.NavHome.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+  $window.Width=1320;$window.Height=850
   $ui.Profile.SelectedIndex=1
-  if([int]$ui.SettingCount.Text -lt 1 -or $ui.PageTitle.Text -ne 'Panel de control'){throw 'Profile counters failed'}
+  if([int]$ui.SettingCount.Text -lt 1 -or $ui.PageTitle.Text -ne 'Panel de control'){throw "Profile counters: settings=$($ui.SettingCount.Text) modules=$($ui.ModuleCount.Text) section=$($ui.PageTitle.Text) catalog=$($catalog.Count) privacy=$($ui.OptPrivacy.IsChecked)"}
   $window.UpdateLayout()
   Save-WindowImage $window 'WinBoost-escritorio'
   $window.Width=900

@@ -7,7 +7,7 @@ foreach($fn in $ast.FindAll({param($node) $node -is [Management.Automation.Langu
  $source=$fn.Extent.Text.Replace('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',"'TEST-SID'")
  . ([scriptblock]::Create($source))
 }
-$catalog=@(Get-Content (Join-Path $base 'Catalog.json') -Raw | ConvertFrom-Json)
+[object[]]$catalog=Get-Content (Join-Path $base 'Catalog.json') -Raw | ConvertFrom-Json
 . (Join-Path $base 'ExtraFunctions.ps1')
 $cfg=Validate-Config ([pscustomobject]@{Privacy=$true;Captures=$false;Mouse=$false;Power=$false;Cleanup=$false;Apps=$false;Runtimes=$false;Repair=$false})
 $script:store=@{}

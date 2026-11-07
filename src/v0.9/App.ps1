@@ -12,7 +12,7 @@ $base=$PSScriptRoot
 $root=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
 $script:worker=$null;$script:session=$null;$script:started=$null;$script:operation=$null
 $script:excluded=@();$script:stopRequested=$false;$script:updatingProfile=$false
-$catalog=@(Get-Content (Join-Path $base 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+[object[]]$catalog=Get-Content (Join-Path $base 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 . (Join-Path $base 'ExtraFunctions.ps1')
 $script:excluded=@($catalog | Where-Object {-not $_.Default} | ForEach-Object {$_.Name})
 $ui.ChooseSettings.Content='Explorar '+$catalog.Count+' ajustes de WinBoost'
@@ -105,7 +105,7 @@ $timer.Add_Tick({
   if(Test-Path -LiteralPath $stepFile){
    $write=[IO.File]::GetLastWriteTimeUtc($stepFile)
    if($write -ne $script:lastStepsWrite){
-    $entries=@(Get-Content -LiteralPath $stepFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+    [object[]]$entries=Get-Content -LiteralPath $stepFile -Raw -Encoding UTF8 | ConvertFrom-Json
     $ui.StageList.ItemsSource=@($entries | ForEach-Object {
      $word=switch($_.State){Completed{'Listo'};Warning{'Aviso'};Failed{'Error'};Cancelled{'Detenido'};default{'En curso'}}
      [pscustomobject]@{Label=$word+' / '+$_.Name+' / '+$_.Seconds+' s'}
