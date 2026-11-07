@@ -1,0 +1,12 @@
+{
+  "Privacy": false,
+  "Captures": false,
+  "Mouse": false,
+  "Power": false,
+  "Cleanup": true,
+  "Apps": false,
+  "Runtimes": false,
+  "Repair": false,
+  "Startup": false,
+  "DeepInventory": true
+}

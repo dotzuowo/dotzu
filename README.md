@@ -1,23 +1,28 @@
-# WinBoost 0.8
+# WinBoost 0.9
 
-Herramienta independiente de PowerShell para Windows 11 x64. Interfaz azul y gris, 44 preferencias, perfiles automaticos, respaldo y recuperacion. Version de prueba.
+Herramienta independiente en PowerShell para Windows 11 x64. Interfaz WinBoost, perfiles automaticos, respaldo e informes. Version de prueba.
 
-## Abrir WinBoost
-Pega en Windows PowerShell, desde cualquier carpeta:
+## Descargar y abrir
 ```powershell
 iwr https://raw.githubusercontent.com/dotzuowo/dotzu/main/WinBoost.ps1 -useb | iex
 ```
-El script despliega sus propios archivos y abre la interfaz. Solicita permisos administrativos con la misma cuenta cuando hacen falta. No requiere descargar un ZIP manualmente.
 
-## Ejecutar un perfil automaticamente
+El script despliega sus propios componentes y abre la interfaz. Pulsa **Modulos de Windows** para acceder a 121 familias: **89 acciones programadas y 32 flujos asistidos**. Todo empieza en Sin cambios. Elige tus opciones, revisa el plan y ejecuta. Algunas familias tienen alcance parcial: no todas las variantes del modelo de referencia estan automatizadas.
+
+Incluye ajustes de privacidad, Explorador, Inicio, barra, juegos, energia, actualizaciones, seguridad, componentes y aplicaciones. Conserva los 44 ajustes del motor base; hay solapamientos y no se suman como funciones distintas.
+
+[Alcance de cada funcion](src/v0.9/COBERTURA.md) · [Uso y recuperacion](src/v0.9/LEEME.md) · [Validacion](src/v0.9/VALIDACION.txt) · [Codigo fuente](src/v0.9/)
+
+## Automatizar un plan guardado
+Guarda el plan desde Modulos de Windows y ejecuta:
 ```powershell
-& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/dotzuowo/dotzu/main/WinBoost.ps1 -useb).Content)) -Mode Apply -Profile Gaming -OpenReport
+& ([scriptblock]::Create((iwr https://raw.githubusercontent.com/dotzuowo/dotzu/main/WinBoost.ps1 -useb).Content)) -Mode ActionsApply -PresetPath 'C:\Planes\MiPlan.json' -OpenReport
 ```
-Usa `-Mode Preview` para revisar el plan sin aplicar cambios. Rápido cambia privacidad e interfaz. Gaming añade desactivar capturas Xbox y energia con corriente. No activa las 18 preferencias opcionales: se eligen en el catalogo y se pueden guardar en un perfil JSON.
+Usa ActionsPreview para comprobar sin aplicar. ActionsRestore recupera la ultima sesion de modulos. Los perfiles Rapido/Gaming/Mantenimiento usan el motor base y `-Mode Apply -Profile Gaming`.
 
-## Codigo y validacion
-[Codigo fuente](src/v0.8/) · [Uso y alcance](src/v0.8/LEEME.md) · [Pruebas](src/v0.8/VALIDACION.txt)
+El archivo unico contiene sus fuentes empaquetadas y comprueba el hash del paquete antes de extraer. El hash detecta corrupcion, no es una firma digital.
 
-El archivo unico contiene un ZIP de este mismo codigo, comprueba su hash y lo extrae localmente. El hash detecta corrupcion; no es una firma digital. Los componentes se ejecutan mediante PowerShell y herramientas nativas de Windows. No depende de otros optimizadores.
+## Estado de validacion
+Pruebas simuladas completadas: 154 variantes reversibles, 7 escenarios de acciones y 11 escenarios de motor base, entre otras comprobaciones. Pendiente probar Windows PowerShell 5.1, WPF, UAC y efectos reales en Windows 11. Las acciones asistidas solo abren controles y no se registran como aplicadas. No se garantizan mejoras de FPS.
 
-Pruebas automatizadas y simuladas realizadas; pendiente validar la interfaz WPF, UAC y los efectos reales en Windows 11. No se garantizan mejoras de FPS. Restaurar no recupera temporales eliminados, apps, instalaciones ni reparaciones.
+Restaurar cubre los estados documentados; no deshace universalmente instalaciones, eliminaciones, limpiezas ni acciones manuales.
