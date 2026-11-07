@@ -3,6 +3,11 @@
  [xml]$xaml=Get-Content (Join-Path $PSScriptRoot 'ActionsWindow.xaml') -Raw -Encoding UTF8
  $dialog=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
  $dialog.Owner=$owner
+ $desktop=[Windows.SystemParameters]::WorkArea
+ $dialog.MinWidth=[math]::Min($dialog.MinWidth,$desktop.Width)
+ $dialog.MinHeight=[math]::Min($dialog.MinHeight,$desktop.Height)
+ $dialog.Width=[math]::Min($dialog.Width,$desktop.Width)
+ $dialog.Height=[math]::Min($dialog.Height,$desktop.Height)
  $validatePlan=${function:WB-ValidatePlan};$saveJson=${function:WB-Save}
  $basePath=$PSScriptRoot
  $cat=WB-ReadCatalog;$controls=@{}

@@ -2,6 +2,11 @@
  [xml]$xml=Get-Content (Join-Path $PSScriptRoot 'Settings.xaml') -Raw -Encoding UTF8
  $dialog=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xml)))
  $dialog.Owner=$owner
+ $desktop=[Windows.SystemParameters]::WorkArea
+ $dialog.MinWidth=[math]::Min($dialog.MinWidth,$desktop.Width)
+ $dialog.MinHeight=[math]::Min($dialog.MinHeight,$desktop.Height)
+ $dialog.Width=[math]::Min($dialog.Width,$desktop.Width)
+ $dialog.Height=[math]::Min($dialog.Height,$desktop.Height)
  $rows=New-Object 'Collections.ObjectModel.ObservableCollection[object]'
  foreach($item in $catalog){
   $current='Sin configurar';$key=$null

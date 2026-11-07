@@ -6,7 +6,7 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 [xml]$xaml=Get-Content (Join-Path $PSScriptRoot 'Window.xaml') -Raw -Encoding UTF8
 $window=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
-$names=@('OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
+$names=@('ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
 $ui=@{};foreach($name in $names){$ui[$name]=$window.FindName($name)}
 $base=$PSScriptRoot
 $root=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
@@ -22,9 +22,11 @@ $script:uiHeld=$false
 try{$script:uiHeld=$script:uiMutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$script:uiHeld=$true}
 if(-not $script:uiHeld){[void][Windows.MessageBox]::Show('WinBoost ya esta abierto para este usuario.','WinBoost');$script:uiMutex.Dispose();return}
 function Page($name){
+ $titles=@{Home='Panel de control';Modules='Ajustes';Maintenance='Mantenimiento';Activity='Actividad';Recovery='Recuperación'}
+ $ui.PageTitle.Text=$titles[$name]
  foreach($n in @('Home','Modules','Maintenance','Activity','Recovery')){
   $ui[$n+'Page'].Visibility=if($n -eq $name){'Visible'}else{'Collapsed'}
-  $ui['Nav'+$n].Background=[Windows.Media.BrushConverter]::new().ConvertFromString($(if($n -eq $name){'#163A60'}else{'#1B2A40'}))
+  $ui['Nav'+$n].Background=[Windows.Media.BrushConverter]::new().ConvertFromString($(if($n -eq $name){'#274861'}else{'#182430'}))
  }
 }
 . (Join-Path $base 'ActionsUI.ps1')
@@ -182,10 +184,12 @@ function Update-Summary {
  $modules=@('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair','Startup','DeepInventory' | Where-Object {$c.$_}).Count
  $groups=@();if($c.Privacy){$groups+=@('Privacy','Suggestions','Interface')};if($c.Captures){$groups+='Captures'};if($c.Mouse){$groups+='Mouse'}
  $count=@($catalog | Where-Object {$_.Module -in $groups -and $_.Name -in $c.SelectedSettings}).Count
- $ui.PlanSummary.Text="$modules modulos / $count preferencias. Estado ligero e informe incluidos."
+ $ui.ModuleCount.Text=[string]$modules
+ $ui.SettingCount.Text=[string]$count
+ $ui.PlanSummary.Text=if($count -gt 0){'Se guardarán los valores originales de las preferencias seleccionadas.'}else{'El plan actual no modifica preferencias del Registro.'}
  $long=($c.Runtimes -or $c.Repair -or $c.DeepInventory)
  $ui.LongTasksNotice.Visibility=if($long){'Visible'}else{'Collapsed'}
- $ui.Optimize.Content=if($long){'Ejecutar seleccion  →'}else{'Aplicar optimizacion  →'}
+ $ui.Optimize.Content=if($long){'Ejecutar selección'}else{'Aplicar optimización'}
 }
 function Save-ProfileFile($path,$value){
  $dir=Split-Path $path -Parent
@@ -278,6 +282,30 @@ foreach($name in @('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtim
  }
  $ui['Opt'+$name].Add_Checked($onChange);$ui['Opt'+$name].Add_Unchecked($onChange)
 }
+$desktop=[Windows.SystemParameters]::WorkArea
+$window.MinWidth=[math]::Min($window.MinWidth,$desktop.Width)
+$window.MinHeight=[math]::Min($window.MinHeight,$desktop.Height)
+$window.Width=[math]::Min($window.Width,$desktop.Width)
+$window.Height=[math]::Min($window.Height,$desktop.Height)
+$rail=$window.FindName('Rail')
+$artWidth=$window.FindName('ArtWidth')
+$sessionWidth=$window.FindName('SessionWidth')
+$workspace=$window.FindName('Workspace')
+$window.Add_SizeChanged({
+ $compact=$window.ActualWidth -lt 1120
+ $rail.Width=if($compact){62}else{193}
+ foreach($n in @('NavHome','NavModules','NavMaintenance','NavActivity','NavRecovery','OpenActions')){
+  $ui[$n].Content.Children[1].Visibility=if($compact){'Collapsed'}else{'Visible'}
+  $ui[$n].Content.Children[0].Margin=if($compact){[Windows.Thickness]::new(0)}else{[Windows.Thickness]::new(0,0,10,0)}
+  $ui[$n].Padding=if($compact){[Windows.Thickness]::new(5,9,5,9)}else{[Windows.Thickness]::new(10,9,10,9)}
+ }
+ $window.FindName('RailWordmark').Visibility=if($compact){'Collapsed'}else{'Visible'}
+ $window.FindName('RailFooter').Visibility=if($compact){'Collapsed'}else{'Visible'}
+ $artWidth.Width=[Windows.GridLength]::new($(if($window.ActualWidth -lt 960){0}elseif($compact){160}else{235}))
+ $sessionWidth.Width=[Windows.GridLength]::new($(if($compact){205}else{248}))
+ $workspace.Margin=if($compact){[Windows.Thickness]::new(14)}else{[Windows.Thickness]::new(25,20,25,20)}
+})
+Page 'Home'
 Set-Profile
 if(Test-Path -LiteralPath $preferencesPath){
  try{Apply-UiConfig (Get-Content -LiteralPath $preferencesPath -Raw -Encoding UTF8 | ConvertFrom-Json)}catch{$ui.RunDetail.Text='El perfil guardado no se pudo cargar. Se utiliza Rapido.'}
