@@ -1,4 +1,4 @@
-﻿#requires -Version 5.1
+#requires -Version 5.1
 <#
 WinBoost 0.9 - paquete PowerShell independiente.
 Sin parametros: despliega los componentes y abre la interfaz.
