@@ -1,0 +1,11 @@
+WinBoost 0.8 — 6 noviembre 2026
+
+Comprobado con PowerShell 7.4.6 en Linux (adaptadores Windows simulados):
+- Sintaxis AST de todos los scripts. XML de ambas ventanas.
+- Motor: aplicar/restaurar, tipos y valores originales, idempotencia, conflictos, fallos parciales, respaldo atomico, cancelacion, perfiles invalidos, inicio y escape HTML.
+- 44 preferencias aplicadas y restauradas en registro simulado; 18 nuevas excluidas de la seleccion por defecto.
+- 11 escenarios de pipeline, incluyendo fallo critico, interrupcion abrupta y recuperacion.
+- Entrada: perfiles, elevacion simulada, rutas con espacios/apostrofes, SID distinto y argumentos.
+- Archivo unico: extraccion real del paquete y comparacion SHA-256 de cada archivo con las fuentes.
+
+Pendiente: ejecutar sobre Windows PowerShell 5.1 y Windows 11 x64 reales. WPF: XML valido no equivale a prueba visual ni de eventos. UAC, aplicaciones, red, WinGet, energia y reparaciones reales no ejecutados. Verificar Registro no demuestra que Windows haya aplicado el comportamiento visual.
