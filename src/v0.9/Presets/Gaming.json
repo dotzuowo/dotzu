@@ -1,5 +1,5 @@
 {
-  "Privacy": true,
+  "Privacy": false,
   "Captures": true,
   "Mouse": false,
   "Power": true,
@@ -8,5 +8,11 @@
   "Runtimes": false,
   "Repair": false,
   "Startup": false,
-  "DeepInventory": false
+  "DeepInventory": false,
+  "SelectedSettings": [
+    "AutoGameModeEnabled",
+    "AllowAutoGameMode",
+    "AppCaptureEnabled",
+    "GameDVR_Enabled"
+  ]
 }

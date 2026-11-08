@@ -9,7 +9,7 @@ iwr https://raw.githubusercontent.com/dotzuowo/dotzu/main/WinBoost.ps1 -useb | i
 
 El script despliega sus propios componentes y abre la interfaz. Pulsa **Modulos de Windows** para acceder a 121 familias: **89 acciones programadas y 32 flujos asistidos**. Todo empieza en Sin cambios. Elige tus opciones, revisa el plan y ejecuta. Algunas familias tienen alcance parcial: no todas las variantes del modelo de referencia estan automatizadas.
 
-Incluye ajustes de privacidad, Explorador, Inicio, barra, juegos, energia, actualizaciones, seguridad, componentes y aplicaciones. Conserva los 44 ajustes del motor base; hay solapamientos y no se suman como funciones distintas.
+Incluye ajustes de privacidad, Explorador, Inicio, barra, juegos, energia, actualizaciones, seguridad, componentes y aplicaciones. Conserva los 45 ajustes del motor base; hay solapamientos y no se suman como funciones distintas.
 
 [Alcance de cada funcion](src/v0.9/COBERTURA.md) · [Uso y recuperacion](src/v0.9/LEEME.md) · [Validacion](src/v0.9/VALIDACION.txt) · [Codigo fuente](src/v0.9/)
 
@@ -26,3 +26,5 @@ El archivo unico contiene sus fuentes empaquetadas y comprueba el hash del paque
 Pruebas simuladas completadas: 154 variantes reversibles, 7 escenarios de acciones y 11 escenarios de motor base, entre otras comprobaciones. Pendiente probar Windows PowerShell 5.1, WPF, UAC y efectos reales en Windows 11. Las acciones asistidas solo abren controles y no se registran como aplicadas. No se garantizan mejoras de FPS.
 
 Restaurar cubre los estados documentados; no deshace universalmente instalaciones, eliminaciones, limpiezas ni acciones manuales.
+
+[Perfil Gaming y fuentes en GitHub](src/v0.9/GAMING.md)

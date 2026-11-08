@@ -25,3 +25,5 @@ Las opciones de seguridad indican su efecto en la descripcion; ninguna se cambia
 
 ## Pruebas
 Pruebas de sintaxis, extraccion, motor base y motor de acciones con adaptadores simulados. Falta validacion real en Windows PowerShell 5.1, WPF, UAC y los cmdlets de Windows. No se garantizan incrementos de FPS. Las politicas pueden depender de la edicion, compilacion y administracion del equipo.
+
+El perfil Gaming, la preferencia de GPU por juego y las fuentes están en [GAMING.md](GAMING.md).

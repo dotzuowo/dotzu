@@ -16,12 +16,12 @@ $window=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
   $bitmap.Freeze()
   $window.Resources['WinBoostOriginalLogo']=$bitmap
  }
-$names=@('ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
+$names=@('SelectGameGpu','ClearGameGpu','GameGpuLabel','ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
 $ui=@{};foreach($name in $names){$ui[$name]=$window.FindName($name)}
 $base=$PSScriptRoot
 $root=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
 $script:worker=$null;$script:session=$null;$script:started=$null;$script:operation=$null
-$script:excluded=@();$script:stopRequested=$false;$script:updatingProfile=$false
+$script:gameExecutable='';$script:excluded=@();$script:stopRequested=$false;$script:updatingProfile=$false
 [object[]]$catalog=Get-Content (Join-Path $base 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 . (Join-Path $base 'ExtraFunctions.ps1')
 $script:excluded=@($catalog | Where-Object {-not $_.Default} | ForEach-Object {$_.Name})
@@ -45,20 +45,25 @@ $ui.NavHome.Add_Click({Page 'Home'});$ui.NavModules.Add_Click({Page 'Modules'})
 $ui.NavActivity.Add_Click({Page 'Activity'});$ui.NavRecovery.Add_Click({Page 'Recovery';Refresh-History})
 $ui.NavMaintenance.Add_Click({Page 'Maintenance'})
 function Busy($busy){
- foreach($n in @('OpenActions','Optimize','Preview','Restore','Profile','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','OptStartup','ChooseSettings','ExportProfile','ImportProfile','OptDeepInventory','ShortcutSettings','RefreshHardware')){$ui[$n].IsEnabled=-not $busy}
+ foreach($n in @('SelectGameGpu','ClearGameGpu','OpenActions','Optimize','Preview','Restore','Profile','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','OptStartup','ChooseSettings','ExportProfile','ImportProfile','OptDeepInventory','ShortcutSettings','RefreshHardware')){$ui[$n].IsEnabled=-not $busy}
 }
 function Set-Profile {
  $index=$ui.Profile.SelectedIndex
  if($index -eq 3){return}
  $script:updatingProfile=$true
  $values=@{Privacy=$true;Captures=$false;Mouse=$false;Power=$false;Cleanup=$false;Apps=$false;Runtimes=$false;Repair=$false;Startup=$false;DeepInventory=$false}
- if($index -eq 1){$values.Captures=$true;$values.Power=$true}
+ if($index -eq 1){$values.Privacy=$false;$values.Captures=$true;$values.Power=$true}
+ $script:gameExecutable=''
  if($index -eq 2){$values.Privacy=$false;$values.Cleanup=$true;$values.DeepInventory=$true}
  $script:excluded=@($catalog | Where-Object {-not $_.Default} | ForEach-Object {$_.Name})
+ if($index -eq 1){
+  $gaming=Get-Content -LiteralPath (Join-Path $base 'Presets/Gaming.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+  $script:excluded=@($catalog | Where-Object {$_.Name -notin $gaming.SelectedSettings} | ForEach-Object {$_.Name})
+ }
  foreach($k in $values.Keys){$ui['Opt'+$k].IsChecked=$values[$k]}
  $ui.ProfileDescription.Text=switch($index){
   0 {'Preferencias de Windows con respaldo. Sin instalaciones, reparacion ni exploracion de temporales.'}
-  1 {'Preferencias + desactivar capturas Xbox y activar Alto rendimiento si esta disponible y conectado. Puede aumentar consumo y temperatura.'}
+  1 {'Activa Modo Juego y desactiva las capturas Xbox. Prueba Alto rendimiento con corriente si está disponible. Puede aumentar consumo y temperatura.'}
   2 {'Limpieza de temporales antiguos y diagnostico ampliado. Puedes agregar instalacion de runtimes o reparacion desde Mantenimiento.'}
  }
  $script:updatingProfile=$false
@@ -71,10 +76,8 @@ function Start-Run($action){
   $id=[guid]::NewGuid().ToString()
   $script:session=Join-Path $root $id
   New-Item -ItemType Directory -Path $script:session -Force | Out-Null
-  $config=[ordered]@{}
-  foreach($name in @('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair','Startup','DeepInventory')){$config[$name]=[bool]$ui['Opt'+$name].IsChecked}
-  $config['SelectedSettings']=@($catalog | Where-Object {$_.Name -notin $script:excluded} | ForEach-Object {$_.Name})
-  Save-ProfileFile $preferencesPath ([pscustomobject]$config)
+  $config=Get-UiConfig
+  Save-ProfileFile $preferencesPath $config
   $request=Join-Path $script:session 'request.json'
   $config | ConvertTo-Json | Set-Content -LiteralPath $request -Encoding UTF8
   $argsList=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $base 'Engine.ps1')+'"'),'-Action',$action,'-SessionId',$id,'-RequestFile',('"'+$request+'"'))
@@ -88,6 +91,15 @@ function Start-Run($action){
   Busy $true;Page 'Activity';$timer.Start()
  }catch{Busy $false;[void][Windows.MessageBox]::Show($_.Exception.Message,'WinBoost')}
 }
+$ui.SelectGameGpu.Add_Click({
+ $picker=New-Object Microsoft.Win32.OpenFileDialog
+ $picker.Title='Elegir ejecutable del juego';$picker.Filter='Ejecutables (*.exe)|*.exe'
+ if($picker.ShowDialog($window)){
+  $script:gameExecutable=$picker.FileName
+  Update-Summary
+ }
+})
+$ui.ClearGameGpu.Add_Click({$script:gameExecutable='';Update-Summary})
 $ui.Optimize.Add_Click({Start-Run 'Apply'})
 $ui.Preview.Add_Click({Start-Run 'Preview'})
 $ui.Restore.Add_Click({Start-Run 'Restore'})
@@ -134,6 +146,10 @@ $timer.Add_Tick({
     default{$ui.RunTitle.Foreground=$brush.ConvertFromString('#FF9595')}
    }
    $ui.RunDetail.Text=if($script:operation -eq 'Preview'){'Analisis sin cambios. Abre el informe, preview.json y plan.json.'}else{'Consulta el informe para ver tareas, resultados y recuperacion. Cierra sesion para refrescar preferencias.'}
+   if($script:operation -eq 'Apply' -and $phase -in @('Completed','CompletedWithWarnings')){
+    $result=Get-Content (Join-Path $script:session 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+    $ui.RunDetail.Text=('Preferencias aplicadas: '+$result.PreferencesApplied+'. Ya configuradas: '+@($result.AlreadyConfigured).Count+'. Energía: '+$result.PowerOutcome+'.')
+   }
    if($script:worker.ExitCode -eq 1){
     $err=Join-Path $script:session 'stderr.log'
     if(Test-Path -LiteralPath $err){$ui.LogBox.AppendText("`r`n"+(Get-Content -LiteralPath $err -Raw))}
@@ -187,6 +203,7 @@ function Get-UiConfig {
  $config=[ordered]@{}
  foreach($name in @('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair','Startup','DeepInventory')){$config[$name]=[bool]$ui['Opt'+$name].IsChecked}
  $config['SelectedSettings']=@($catalog | Where-Object {$_.Name -notin $script:excluded} | ForEach-Object {$_.Name})
+ $config['GameExecutable']=$script:gameExecutable
  return [pscustomobject]$config
 }
 function Update-Summary {
@@ -194,6 +211,9 @@ function Update-Summary {
  $modules=@('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair','Startup','DeepInventory' | Where-Object {$c.$_}).Count
  $groups=@();if($c.Privacy){$groups+=@('Privacy','Suggestions','Interface')};if($c.Captures){$groups+='Captures'};if($c.Mouse){$groups+='Mouse'}
  $count=@($catalog | Where-Object {$_.Module -in $groups -and $_.Name -in $c.SelectedSettings}).Count
+ if($script:gameExecutable){$count++;$modules++}
+ $ui.GameGpuLabel.Text=if($script:gameExecutable){[IO.Path]::GetFileName($script:gameExecutable)}else{'Opcional para equipos con varias GPU'}
+ $ui.ClearGameGpu.IsEnabled=[bool]$script:gameExecutable
  $ui.ModuleCount.Text=[string]$modules
  $ui.SettingCount.Text=[string]$count
  $ui.PlanSummary.Text=if($count -gt 0){'Se guardarán los valores originales de las preferencias seleccionadas.'}else{'El plan actual no modifica preferencias del Registro.'}
@@ -216,6 +236,7 @@ function Apply-UiConfig($value){
  try{
   foreach($name in @('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair','Startup','DeepInventory')){$ui['Opt'+$name].IsChecked=$c.$name}
   $script:excluded=@($catalog | Where-Object {$_.Name -notin $c.SelectedSettings} | ForEach-Object {$_.Name})
+  $script:gameExecutable=$c.GameExecutable
   $ui.Profile.SelectedIndex=3
   $ui.ProfileDescription.Text='Perfil personalizado. Revisa los modulos y las preferencias individuales antes de ejecutar.'
  }finally{$script:updatingProfile=$false}

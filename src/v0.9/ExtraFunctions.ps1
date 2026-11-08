@@ -1,5 +1,23 @@
 ﻿# Funciones auxiliares del motor; no ejecutan cambios al importarlas.
+
+function Test-GameExecutableName([string]$path){
+ if($path -notmatch '^[A-Za-z]:\\[^:*?"<>|\r\n]+\.exe$'){return $false}
+ return $path -notmatch '(?:^|\\)\.{1,2}(?:\\|$)'
+}
+function Get-GameGpuTarget($before){
+ if($before.Exists -and $before.Kind -ne 'String'){throw 'Tipo inesperado de preferencia gráfica.'}
+ $original=[string]$before.Value
+ $pattern='(?i)(^|;)(GpuPreference=)[^;]*'
+ if([regex]::Matches($original,$pattern).Count -gt 1){throw 'Hay preferencias de GPU duplicadas. Revisa Configuración de gráficos de Windows.'}
+ if([regex]::IsMatch($original,$pattern)){
+  return [regex]::Replace($original,$pattern,'${1}${2}2')
+ }
+ if($original.Length -and -not $original.EndsWith(';')){$original+=';'}
+ return $original+'GpuPreference=2;'
+}
 function Validate-Config($value){
+ if($null -eq $value.PSObject.Properties['GameExecutable']){$value | Add-Member NoteProperty GameExecutable ''}
+ if($value.GameExecutable -isnot [string] -or ($value.GameExecutable -and -not (Test-GameExecutableName $value.GameExecutable))){throw 'Elige la ruta local completa al ejecutable del juego.'}
  if($null -eq $value.PSObject.Properties['DeepInventory']){$value | Add-Member NoteProperty DeepInventory $false}
  if($value.DeepInventory -isnot [bool]){throw 'Opcion invalida: DeepInventory'}
  foreach($key in @('Privacy','Captures','Mouse','Power','Cleanup','Apps','Runtimes','Repair')){
@@ -36,8 +54,18 @@ function Check-IncompleteSession($sid){
 function Write-Report($phase,$message){
  $changed=if($null -ne $script:journal){@($script:journal.Registry | Where-Object {$_.State -eq 'Applied'}).Count}else{0}
  $removed=if($null -ne $script:journal){@($script:journal.Apps | Where-Object {$_.State -eq 'Removed'}).Count}else{0}
+ $already=@()
+ if(Get-Variable alreadyConfigured -Scope Script -ErrorAction SilentlyContinue){$already=@($script:alreadyConfigured)}
+ $power='No solicitado'
+ $powerStep=@($script:steps | Where-Object {$_.Name -eq 'Alto rendimiento cuando este disponible'})
+ if($powerStep.Count){
+  if($powerStep[0].State -ne 'Completed'){$power=$powerStep[0].State+' / '+$powerStep[0].Detail}
+  elseif($null -ne $script:journal.Power){$power='Plan de energía: '+$script:journal.Power.State}
+  else{$power='Alto rendimiento ya estaba activo'}
+ }
  $summary=[ordered]@{
   Version='0.9.0';Session=$SessionId;Operation=$Action;Status=$phase;Message=$message
+  AlreadyConfigured=$already;PowerOutcome=$power
   PreferencesApplied=$changed;TempBytesDeleted=$script:freed;AppsRemoved=$removed
   EngineSeconds=[math]::Round($script:startedAt.Elapsed.TotalSeconds,3);JournalWrites=$script:journalWrites;Warnings=$script:warnings;Rollback=$script:rollback;Steps=$script:steps
   NeedSignOut=($null -ne $script:journal -and $script:journal.Registry.Count -gt 0)
@@ -62,6 +90,9 @@ function Write-Report($phase,$message){
  $html+='<div class="card"><div class="number">'+([math]::Round($script:freed/1048576,1))+' MB</div>Temporales eliminados</div>'
  $html+='<div class="card"><div class="number">'+$removed+'</div>Apps desinstaladas</div>'
  $html+='<div class="card"><div class="number">'+$script:warnings+'</div>Avisos</div></div>'
+ if($Action -eq 'Apply'){
+  $html+='<h2>Preferencias que ya coincidían</h2><p>'+(& $enc ($already -join ', '))+'</p><p>Energía: '+(& $enc $power)+'</p>'
+ }
  $html+='<h2>Secuencia ejecutada</h2><table><tr><th>Tarea</th><th>Resultado</th><th>Duracion</th><th>Detalle</th></tr>'+($rows -join '')+'</table>'
  $html+='<h2>Diario de preferencias</h2><table><tr><th>Valor</th><th>Original</th><th>Objetivo</th><th>Estado</th></tr>'+($changes -join '')+'</table>'
  $previewFile=Join-Path $run 'preview.json'

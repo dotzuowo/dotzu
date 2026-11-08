@@ -29,7 +29,7 @@ Check 'Carga de las ventanas WPF' {
 }
 Check 'Catalogo de preferencias' {
  [object[]]$items=Get-Content (Join-Path $root 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json
- if($items.Count -ne 44 -or @($items.Name | Select-Object -Unique).Count -ne 44){throw 'Catalogo incompleto o duplicado.'}
+ if($items.Count -ne 45 -or @($items.Name | Select-Object -Unique).Count -ne 45){throw 'Catalogo incompleto o duplicado.'}
  foreach($item in $items){if($item.Kind -notin @('DWord','String') -or $item.Path -notmatch '^(Software|System|Control Panel)\\'){throw 'Entrada invalida.'}}
 }
 Check 'Contrato del motor con registro simulado' {& (Join-Path $root 'Tests\Engine.Tests.ps1')}

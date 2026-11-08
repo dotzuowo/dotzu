@@ -180,7 +180,11 @@ function Selected-Catalog {
  if($cfg.Privacy){$groups+=@('Privacy','Suggestions','Interface')}
  if($cfg.Captures){$groups+='Captures'}
  if($cfg.Mouse){$groups+='Mouse'}
- return @($catalog | Where-Object {$_.Module -in $groups -and $_.Name -in $cfg.SelectedSettings})
+ $selected=@($catalog | Where-Object {$_.Module -in $groups -and $_.Name -in $cfg.SelectedSettings})
+ if($cfg.GameExecutable){
+  $selected+=[pscustomobject]@{Path='Software\Microsoft\DirectX\UserGpuPreferences';Name=$cfg.GameExecutable;Label='GPU de alto rendimiento / '+[IO.Path]::GetFileName($cfg.GameExecutable);Kind='String';Value=$null;Module='GameGpu'}
+ }
+ return $selected
 }
 function Apply-RegistryEntry($path,$name,$after,$label){
  Check-Cancellation
@@ -196,14 +200,16 @@ function Apply-RegistryEntry($path,$name,$after,$label){
  Log "Aplicado: $label"
 }
 function Registry-Apply {
+ $script:alreadyConfigured=@()
  $batch=@()
  # Primero persistir TODOS los originales. Planned tambien se puede recuperar
  # despues de una interrupcion, comparando contra el valor original y objetivo.
  foreach($c in @(Selected-Catalog)){
   Check-Cancellation
   $old=Read-Reg $c.Path $c.Name
-  $after=[pscustomobject]@{Exists=$true;Kind=$c.Kind;Value=$c.Value}
-  if(Same-State $old $after){Log "Ya configurado: $($c.Label)";continue}
+  $target=if($c.Module -eq 'GameGpu'){Get-GameGpuTarget $old}else{$c.Value}
+  $after=[pscustomobject]@{Exists=$true;Kind=$c.Kind;Value=$target}
+  if(Same-State $old $after){$script:alreadyConfigured+=$c.Label;Log "Ya configurado: $($c.Label)";continue}
   $batch+=[pscustomobject]@{Path=$c.Path;Name=$c.Name;Before=$old;After=$after;State='Planned'}
  }
  if($batch.Count -eq 0){Log 'La seleccion ya esta configurada.';return}
@@ -325,7 +331,8 @@ function Restore-Latest([string]$BackupPath){
    $allowed=@($catalog | Where-Object {$_.Path -eq $e.Path -and $_.Name -eq $e.Name})
    $validSetting=($allowed.Count -eq 1 -and $e.After.Exists -and $e.After.Kind -eq $allowed[0].Kind -and [string]$e.After.Value -ceq [string]$allowed[0].Value)
    $validStartup=($e.Path -eq 'Software\Microsoft\Windows\CurrentVersion\Run' -and $e.Name -in @('Discord','Steam','EpicGamesLauncher','Spotify') -and -not $e.After.Exists)
-   if((-not $validSetting -and -not $validStartup) -or $e.Before.Kind -notin @($null,'DWord','String','ExpandString')){throw 'Entrada de respaldo invalida.'}
+   $validGpu=($e.Path -eq 'Software\Microsoft\DirectX\UserGpuPreferences' -and (Test-GameExecutableName $e.Name) -and $e.After.Exists -and $e.After.Kind -eq 'String' -and [string]$e.After.Value -ceq (Get-GameGpuTarget $e.Before))
+   if((-not $validGpu -and -not $validSetting -and -not $validStartup) -or $e.Before.Kind -notin @($null,'DWord','String','ExpandString')){throw 'Entrada de respaldo invalida.'}
    $current=Read-Reg $e.Path $e.Name
    if(Same-State $current $e.Before){$e.State='Restored';Save-Json $script:journal $target.FullName;continue}
    if(-not (Same-State $current $e.After)){throw "Cambio externo: $($e.Name)"}
@@ -368,11 +375,16 @@ try{
  }else{
   if(-not $RequestFile){throw 'Falta la seleccion de modulos.'}
   $cfg=Validate-Config (Get-Content -LiteralPath $RequestFile -Raw -Encoding UTF8 | ConvertFrom-Json)
+  if($cfg.GameExecutable -and -not (Test-Path -LiteralPath $cfg.GameExecutable -PathType Leaf)){throw 'El ejecutable del juego no existe en este equipo. Selecciona su ubicación actual.'}
   if($Action -eq 'Preview'){
    $script:total=2
    Stage 'Inventario ligero del equipo' {[void](Inventory (Join-Path $run 'inventory.json'))}
    Stage 'Plan exacto de preferencias' {
-    $list=@(Selected-Catalog | ForEach-Object {[pscustomobject]@{Ajuste=$_.Label;Nombre=$_.Name;Antes=(Read-Reg $_.Path $_.Name);Despues=$_.Value;Tipo=$_.Kind}})
+    $list=@(Selected-Catalog | ForEach-Object {
+     $current=Read-Reg $_.Path $_.Name
+     $target=if($_.Module -eq 'GameGpu'){Get-GameGpuTarget $current}else{$_.Value}
+     [pscustomobject]@{Ajuste=$_.Label;Nombre=$_.Name;Antes=$current;Despues=$target;Tipo=$_.Kind}
+    })
     Save-Json $list (Join-Path $run 'preview.json')
     Save-Json $cfg (Join-Path $run 'plan.json')
     Log "Analisis sin cambios: $($list.Count) preferencias. Los modulos adicionales estan en plan.json."

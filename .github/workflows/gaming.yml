@@ -1,0 +1,22 @@
+name: Gaming profile
+on:
+  push:
+    paths:
+      - 'src/v0.9/Presets/Gaming.json'
+      - 'src/v0.9/Engine.ps1'
+      - 'src/v0.9/ExtraFunctions.ps1'
+      - 'tests/Test-Gaming.ps1'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  registry:
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Apply, repeat and restore the selected game settings
+        shell: powershell
+        run: powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests/Test-Gaming.ps1 -Source src/v0.9

@@ -2,7 +2,7 @@
 
 121 familias visibles: 89 acciones programadas y 32 flujos asistidos. Esto no significa equivalencia exacta con todas las variantes del modelo de referencia. Algunas familias tienen alcance parcial, especificado abajo.
 
-Los 44 ajustes del motor base se conservan; hay solapamiento con el catalogo de modulos, por lo que no se suman como funciones distintas. Ningun modulo avanzado se activa por defecto.
+Los 45 ajustes del motor base se conservan; hay solapamiento con el catalogo de modulos, por lo que no se suman como funciones distintas. Ningun modulo avanzado se activa por defecto.
 
 | Funcion | Ejecucion | Opciones | Alcance |
 |---|---|---|---|

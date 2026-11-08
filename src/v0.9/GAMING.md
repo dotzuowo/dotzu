@@ -1,0 +1,13 @@
+# Perfil Gaming
+Gaming activa las preferencias AllowAutoGameMode y AutoGameModeEnabled y desactiva AppCaptureEnabled y GameDVR_Enabled para el usuario actual. Las dos preferencias de capturas ya existían en WinBoost. Elegir Gaming no activa los ajustes de privacidad e interfaz. Las capturas de Xbox pueden dejar de funcionar; se puede ajustar la selección individual. Se mantiene Alto rendimiento cuando el plan existe y hay corriente. Puede aumentar consumo y temperatura.
+
+**Elegir .exe** añade una preferencia de GPU de alto rendimiento para un solo juego, especialmente útil en equipos con dos GPU. Selecciona el ejecutable real del juego, cierra y vuelve a abrir el juego después de aplicar. La ruta se guarda en el perfil y debe existir en la PC donde se use. Se conservan los demás campos de la preferencia DirectX. **Quitar** quita el juego de la selección futura; para deshacer un cambio ya aplicado utiliza Recuperación. Windows y el controlador determinan la GPU efectiva.
+
+El resumen separa los valores modificados de los que ya coincidían y muestra el resultado de energía. Restaurar recupera los valores originales de la sesión, incluidos los ausentes, y conserva cambios externos. Los perfiles JSON guardados anteriormente mantienen su selección. Para usar la nueva selección en la interfaz elige Gaming en el selector.
+
+## Implementaciones consultadas
+- [WinUtil, Game Mode](https://github.com/ChrisTitusTech/winutil/blob/2ef5e5dc7852634bc40ad789a3d1115ee3913c41/docs/src/content/docs/code-reference/tweaks/Customize-Preferences/GameMode.mdx). Se adaptan los dos valores de Game Bar a los respaldos y comprobaciones de WinBoost.
+- [Win11Debloat, DVR](https://github.com/Raphire/Win11Debloat/blob/e6184a2597d716838066ed272dce6fd6d58aac21/Regfiles/Disable_DVR.reg) y [Atlas, capturas](https://github.com/Atlas-OS/Atlas/blob/9e6c2066c3acdb45332e9b0527a4ef92929b7b3e/playbook/Executables/AtlasModules/Scripts/Tweaks/performance/disable-game-bar.psd1). Coinciden en los ajustes de captura del usuario. WinBoost usa esos dos valores del perfil, sin cambiar las políticas del equipo.
+- [Revision Playbook, preferencia por ejecutable](https://github.com/meetrevision/playbook/blob/bc9f08a29ba3ae9aa20605fd7023f567aaa631a7/src/Configuration/Tasks/registry/explorer/explorer.yml). Ese proyecto usa GpuPreference=2 para Explorer. WinBoost aplica esa preferencia exclusivamente al ejecutable elegido, preservando sus demás opciones.
+
+Estas referencias muestran mecanismos de configuración. El efecto en FPS o tiempos de fotograma se debe medir con el mismo juego, escena y configuración antes y después.

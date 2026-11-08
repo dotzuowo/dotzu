@@ -5,7 +5,7 @@ Ejecutado en Linux con PowerShell 7.4.6, sin modificar un Windows real:
 - 154 variantes reversibles del nuevo motor: idempotencia y restauracion con estado simulado.
 - Rechazo de planes invalidos, acciones/opciones desconocidas, duplicados, comodines y argumentos con inyeccion.
 - 7 escenarios del nuevo worker: preview, aplicar/restaurar, compatibilidad bloqueante, fallo nativo, cancelacion, accion asistida e interrupcion abrupta con recuperacion.
-- Motor base: 44 preferencias, conflictos, diarios, restauracion y perfiles.
+- Motor base: 45 preferencias, conflictos, diarios, restauracion y perfiles.
 - 11 escenarios de pipeline base y pruebas de entrada/elevacion simulada.
 - Extraccion del archivo unico y comparacion de bytes con fuentes.
 

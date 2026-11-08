@@ -482,5 +482,16 @@
     "Description": "Activa la preferencia Modo Juego de Windows; no garantiza un aumento de FPS.",
     "Category": "Juegos y capturas",
     "Default": false
+  },
+  {
+    "Module": "Captures",
+    "Path": "Software\\Microsoft\\GameBar",
+    "Name": "AllowAutoGameMode",
+    "Value": 1,
+    "Kind": "DWord",
+    "Label": "Permitir Modo Juego automático",
+    "Description": "Permite la activación automática de Modo Juego junto con AutoGameModeEnabled.",
+    "Category": "Juegos y capturas",
+    "Default": false
   }
 ]

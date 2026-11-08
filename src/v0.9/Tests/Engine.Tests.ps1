@@ -166,11 +166,11 @@ $cfg.Captures=$true;$cfg.Mouse=$true
 $cfg.SelectedSettings=@($catalog.Name)
 $script:store=@{};New-TestSession
 Registry-Apply
-Assert ($script:journal.Registry.Count -eq 44) 'Deben aplicar las 44 preferencias seleccionadas'
+Assert ($script:journal.Registry.Count -eq 45) 'Deben aplicar las 45 preferencias seleccionadas'
 Registry-Apply
-Assert ($script:journal.Registry.Count -eq 44) 'No duplicar al reaplicar el catalogo ampliado'
+Assert ($script:journal.Registry.Count -eq 45) 'No duplicar al reaplicar el catalogo ampliado'
 Restore-Latest
-Assert ($script:store.Count -eq 0) 'Restaurar las 44 preferencias a su ausencia original'
-Write-Output 'PASS: 18 opciones nuevas optativas, 44 preferencias idempotentes y reversibles'
+Assert ($script:store.Count -eq 0) 'Restaurar las 45 preferencias a su ausencia original'
+Write-Output 'PASS: 19 opciones nuevas optativas, 45 preferencias idempotentes y reversibles'
 Remove-Item -LiteralPath $testRoot -Recurse -Force
 
