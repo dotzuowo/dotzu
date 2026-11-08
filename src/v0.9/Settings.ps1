@@ -1,6 +1,9 @@
 ﻿function Show-SettingsDialog($owner,$catalog,$excluded){
  [xml]$xml=Get-Content (Join-Path $PSScriptRoot 'Settings.xaml') -Raw -Encoding UTF8
  $dialog=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xml)))
+ if($owner.Resources.Contains('WinBoostOriginalLogo')){
+  $dialog.Resources['WinBoostOriginalLogo']=$owner.Resources['WinBoostOriginalLogo']
+ }
  $dialog.Owner=$owner
  $desktop=[Windows.SystemParameters]::WorkArea
  $dialog.MinWidth=[math]::Min($dialog.MinWidth,$desktop.Width)

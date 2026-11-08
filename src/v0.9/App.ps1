@@ -6,6 +6,16 @@ Add-Type -AssemblyName PresentationCore
 Add-Type -AssemblyName WindowsBase
 [xml]$xaml=Get-Content (Join-Path $PSScriptRoot 'Window.xaml') -Raw -Encoding UTF8
 $window=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
+ $brandFile=Join-Path $PSScriptRoot 'Assets/WinBoost.png'
+ if(Test-Path -LiteralPath $brandFile){
+  $bitmap=[Windows.Media.Imaging.BitmapImage]::new()
+  $bitmap.BeginInit()
+  $bitmap.CacheOption=[Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+  $bitmap.UriSource=[Uri]::new($brandFile,[UriKind]::Absolute)
+  $bitmap.EndInit()
+  $bitmap.Freeze()
+  $window.Resources['WinBoostOriginalLogo']=$bitmap
+ }
 $names=@('ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
 $ui=@{};foreach($name in $names){$ui[$name]=$window.FindName($name)}
 $base=$PSScriptRoot
@@ -26,7 +36,7 @@ function Page($name){
  $ui.PageTitle.Text=$titles[$name]
  foreach($n in @('Home','Modules','Maintenance','Activity','Recovery')){
   $ui[$n+'Page'].Visibility=if($n -eq $name){'Visible'}else{'Collapsed'}
-  $ui['Nav'+$n].Background=[Windows.Media.BrushConverter]::new().ConvertFromString($(if($n -eq $name){'#274861'}else{'#182430'}))
+  $ui['Nav'+$n].Background=[Windows.Media.BrushConverter]::new().ConvertFromString($(if($n -eq $name){'#175577'}else{'#242424'}))
  }
 }
 . (Join-Path $base 'ActionsUI.ps1')

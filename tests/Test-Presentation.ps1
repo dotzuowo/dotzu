@@ -9,6 +9,8 @@ $env:LOCALAPPDATA=Join-Path ([IO.Path]::GetTempPath()) ('WinBoost-UI-'+[guid]::N
 $probe=@'
 $window.Add_ContentRendered({
  try {
+  $logo=$window.Resources['WinBoostOriginalLogo']
+  if($null -eq $logo -or $logo.PixelWidth -ne 384 -or $logo.PixelHeight -ne 384){throw 'El logo oficial no se cargo desde el paquete.'}
   $ui.NavModules.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   if($ui.ModulesPage.Visibility -ne 'Visible'){throw 'Navigation failed'}
   $ui.NavHome.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))

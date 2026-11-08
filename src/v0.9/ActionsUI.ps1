@@ -2,6 +2,9 @@
  . (Join-Path $PSScriptRoot 'ActionsCore.ps1')
  [xml]$xaml=Get-Content (Join-Path $PSScriptRoot 'ActionsWindow.xaml') -Raw -Encoding UTF8
  $dialog=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
+ if($owner.Resources.Contains('WinBoostOriginalLogo')){
+  $dialog.Resources['WinBoostOriginalLogo']=$owner.Resources['WinBoostOriginalLogo']
+ }
  $dialog.Owner=$owner
  $desktop=[Windows.SystemParameters]::WorkArea
  $dialog.MinWidth=[math]::Min($dialog.MinWidth,$desktop.Width)
