@@ -9,6 +9,7 @@ foreach($fn in $ast.FindAll({param($node) $node -is [Management.Automation.Langu
 }
 [object[]]$catalog=Get-Content (Join-Path $base 'Catalog.json') -Raw | ConvertFrom-Json
 . (Join-Path $base 'ExtraFunctions.ps1')
+. (Join-Path $base 'Sessions.ps1')
 $cfg=Validate-Config ([pscustomobject]@{Privacy=$true;Captures=$false;Mouse=$false;Power=$false;Cleanup=$false;Apps=$false;Runtimes=$false;Repair=$false})
 $script:store=@{}
 function Key($path,$name){return $path+'|'+$name}
@@ -25,7 +26,7 @@ $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('winboost-tests-'+[guid]::NewGui
 $env:COMPUTERNAME='TEST-PC'
 $script:warnings=0
 function New-TestSession {
- $script:root=Join-Path $testRoot ([guid]::NewGuid().ToString());$script:run=Join-Path $script:root 'session'
+ $script:root=Join-Path $testRoot ([guid]::NewGuid().ToString());$script:run=Join-Path $script:root ([guid]::NewGuid().ToString())
  New-Item -ItemType Directory $script:run -Force | Out-Null
  $script:journalPath=Join-Path $script:run 'backup.json'
  $script:cancelPath=Join-Path $script:run 'cancel.request'

@@ -16,7 +16,7 @@ $window=[Windows.Markup.XamlReader]::Load((New-Object Xml.XmlNodeReader($xaml)))
   $bitmap.Freeze()
   $window.Resources['WinBoostOriginalLogo']=$bitmap
  }
-$names=@('SelectGameGpu','ClearGameGpu','GameGpuLabel','ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList')
+$names=@('SelectGameGpu','ClearGameGpu','GameGpuLabel','ModuleCount','SettingCount','PageTitle','OpenActions','NavHome','NavModules','NavActivity','NavRecovery','HomePage','ModulesPage','ActivityPage','RecoveryPage','Profile','ProfileDescription','HardwareText','SystemText','Optimize','Preview','Restore','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','LogBox','RunTitle','RunDetail','Elapsed','Progress','OpenReport','OpenSession','OpenData','OptStartup','ChooseSettings','PlanSummary','ExportProfile','ImportProfile','StopRun','HistoryList','RefreshHistory','OpenHistory','NavMaintenance','MaintenancePage','OptDeepInventory','LongTasksNotice','RefreshHardware','ShortcutSettings','StageList','RestoreHistory')
 $ui=@{};foreach($name in $names){$ui[$name]=$window.FindName($name)}
 $base=$PSScriptRoot
 $root=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
@@ -24,6 +24,7 @@ $script:worker=$null;$script:session=$null;$script:started=$null;$script:operati
 $script:gameExecutable='';$script:excluded=@();$script:stopRequested=$false;$script:updatingProfile=$false
 [object[]]$catalog=Get-Content (Join-Path $base 'Catalog.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 . (Join-Path $base 'ExtraFunctions.ps1')
+. (Join-Path $base 'Sessions.ps1')
 $script:excluded=@($catalog | Where-Object {-not $_.Default} | ForEach-Object {$_.Name})
 $ui.ChooseSettings.Content='Explorar '+$catalog.Count+' ajustes de WinBoost'
 $preferencesPath=Join-Path $root 'preferences-v05.json'
@@ -45,7 +46,7 @@ $ui.NavHome.Add_Click({Page 'Home'});$ui.NavModules.Add_Click({Page 'Modules'})
 $ui.NavActivity.Add_Click({Page 'Activity'});$ui.NavRecovery.Add_Click({Page 'Recovery';Refresh-History})
 $ui.NavMaintenance.Add_Click({Page 'Maintenance'})
 function Busy($busy){
- foreach($n in @('SelectGameGpu','ClearGameGpu','OpenActions','Optimize','Preview','Restore','Profile','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','OptStartup','ChooseSettings','ExportProfile','ImportProfile','OptDeepInventory','ShortcutSettings','RefreshHardware')){$ui[$n].IsEnabled=-not $busy}
+ foreach($n in @('SelectGameGpu','ClearGameGpu','OpenActions','Optimize','Preview','Restore','Profile','OptPrivacy','OptCaptures','OptMouse','OptPower','OptCleanup','OptApps','OptRuntimes','OptRepair','OptStartup','ChooseSettings','ExportProfile','ImportProfile','OptDeepInventory','ShortcutSettings','RefreshHardware','RestoreHistory')){$ui[$n].IsEnabled=-not $busy}
 }
 function Set-Profile {
  $index=$ui.Profile.SelectedIndex
@@ -70,17 +71,19 @@ function Set-Profile {
  Update-Summary
 }
 $ui.Profile.Add_SelectionChanged({Set-Profile})
-function Start-Run($action){
+function Start-Run($action,[string]$restoreId='',[bool]$advanced=$false){
  try{
   if($null -ne $script:worker -and -not $script:worker.HasExited){return}
   $id=[guid]::NewGuid().ToString()
-  $script:session=Join-Path $root $id
+  $script:session=if($advanced){Join-Path (Join-Path $root 'Advanced') $id}else{Join-Path $root $id}
   New-Item -ItemType Directory -Path $script:session -Force | Out-Null
   $config=Get-UiConfig
   Save-ProfileFile $preferencesPath $config
   $request=Join-Path $script:session 'request.json'
   $config | ConvertTo-Json | Set-Content -LiteralPath $request -Encoding UTF8
   $argsList=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $base 'Engine.ps1')+'"'),'-Action',$action,'-SessionId',$id,'-RequestFile',('"'+$request+'"'))
+  if($advanced){$argsList=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $base 'ActionsEngine.ps1')+'"'),'-Mode','Restore','-SessionId',$id)}
+  if($restoreId){$argsList+=@('-RestoreSessionId',$restoreId)}
   $script:worker=Start-Process -FilePath "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -ArgumentList $argsList -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $script:session 'stdout.log') -RedirectStandardError (Join-Path $script:session 'stderr.log')
   $script:started=Get-Date;$script:operation=$action;$script:stopRequested=$false
   $script:lastStatusWrite=[datetime]::MinValue;$script:lastLogWrite=[datetime]::MinValue;$script:lastStepsWrite=[datetime]::MinValue
@@ -140,6 +143,8 @@ $timer.Add_Tick({
    $phase=if(Test-Path -LiteralPath $file){(Get-Content -LiteralPath $file -Raw | ConvertFrom-Json).Phase}else{'Failed'}
    $brush=New-Object Windows.Media.BrushConverter
    switch($phase){
+    'Restored'{$ui.RunTitle.Foreground=$brush.ConvertFromString('#7BD9AE')}
+    'RestoreConflicts'{$ui.RunTitle.Text='Restauracion con conflictos; revisa el informe';$ui.RunTitle.Foreground=$brush.ConvertFromString('#E6BC75')}
     'Completed'{$ui.RunTitle.Foreground=$brush.ConvertFromString('#7BD9AE')}
     'CompletedWithWarnings'{$ui.RunTitle.Text='Finalizado con avisos; revisa el informe';$ui.RunTitle.Foreground=$brush.ConvertFromString('#E6BC75')}
     'Cancelled'{$ui.RunTitle.Text='Detenido; revisa la recuperacion en el informe';$ui.RunTitle.Foreground=$brush.ConvertFromString('#E6BC75')}
@@ -149,6 +154,7 @@ $timer.Add_Tick({
    if($script:operation -eq 'Apply' -and $phase -in @('Completed','CompletedWithWarnings')){
     $result=Get-Content (Join-Path $script:session 'summary.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     $ui.RunDetail.Text=('Preferencias aplicadas: '+$result.PreferencesApplied+'. Ya configuradas: '+@($result.AlreadyConfigured).Count+'. Energía: '+$result.PowerOutcome+'.')
+    if($result.RestartRequired){$ui.RunDetail.Text+=' Reinicio requerido; no se reinicia automaticamente.'}
    }
    if($script:worker.ExitCode -eq 1){
     $err=Join-Path $script:session 'stderr.log'
@@ -245,18 +251,21 @@ function Apply-UiConfig($value){
 function Refresh-History {
  $ui.HistoryList.Items.Clear()
  if(-not (Test-Path -LiteralPath $root)){return}
- foreach($dir in @(Get-ChildItem -LiteralPath $root -Directory | Sort-Object CreationTime -Descending | Select-Object -First 50)){
-  try{
-   $statusFile=Join-Path $dir.FullName 'status.json'
-   if(-not (Test-Path -LiteralPath $statusFile)){continue}
-   $s=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8 | ConvertFrom-Json
-   $jfile=Join-Path $dir.FullName 'backup.json'
-   $state=if(Test-Path -LiteralPath $jfile){(Get-Content -LiteralPath $jfile -Raw -Encoding UTF8 | ConvertFrom-Json).Status}else{$s.Phase}
-   $display=$dir.CreationTime.ToString('dd/MM/yyyy HH:mm')+' / '+$state+' / '+$dir.Name.Substring(0,[math]::Min(8,$dir.Name.Length))
-   [void]$ui.HistoryList.Items.Add([pscustomobject]@{Title=$display;Path=$dir.FullName})
-  }catch{continue}
+ $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+ foreach($s in @(Get-WBSessionHistory $root $sid $env:COMPUTERNAME | Sort-Object Date -Descending | Select-Object -First 100)){
+  $display=$s.Date.ToString('dd/MM/yyyy HH:mm')+' / '+$s.Engine+' / '+$s.Status+' / '+$s.SessionId.Substring(0,8)
+  if($s.Recovered){$display+=' / Copia recuperada'}
+  [void]$ui.HistoryList.Items.Add([pscustomobject]@{Title=$display;Path=$s.Path;SessionId=$s.SessionId;Engine=$s.Engine;Status=$s.Status;HasBackup=$s.HasBackup;Error=$s.Error})
  }
 }
+$ui.RestoreHistory.Add_Click({
+ $selected=$ui.HistoryList.SelectedItem
+ if($null -eq $selected){[void][Windows.MessageBox]::Show('Selecciona una sesion del historial.','WinBoost');return}
+ if($selected.Error){[void][Windows.MessageBox]::Show(('Diario ilegible. Se conserva para revision: '+$selected.Path),'WinBoost');return}
+ if(-not $selected.HasBackup){[void][Windows.MessageBox]::Show('Esta sesion no contiene cambios con respaldo.','WinBoost');return}
+ if($selected.Status -eq 'Restored'){[void][Windows.MessageBox]::Show('Esta sesion ya fue restaurada.','WinBoost');return}
+ Start-Run 'Restore' $selected.SessionId ($selected.Engine -eq 'Advanced')
+})
 $ui.RefreshHistory.Add_Click({Refresh-History})
 $ui.OpenHistory.Add_Click({
  try{

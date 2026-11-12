@@ -43,15 +43,14 @@ function Preflight {
  Save-Json ([ordered]@{Build=$script:build;PowerShell=$PSVersionTable.PSVersion.ToString();PendingReboot=$pending;Architecture=$env:PROCESSOR_ARCHITECTURE}) (Join-Path $run 'preflight.json')
 }
 function Check-IncompleteSession($sid){
- foreach($file in @(Get-ChildItem -LiteralPath $root -Filter backup.json -Recurse)){
-  if($file.FullName -eq $journalPath){continue}
-  $j=Read-Journal $file.FullName
-  if($j.Sid -eq $sid -and $j.Computer -eq $env:COMPUTERNAME -and $j.Status -eq 'Pending'){
-   throw 'Hay una ejecucion anterior incompleta. Usa Recuperacion antes de comenzar otra.'
-  }
+ foreach($s in @(Get-WBSessionHistory $root $sid $env:COMPUTERNAME)){
+  if($s.BackupPath -eq $journalPath){continue}
+  if($s.Error){throw ('Respaldo ilegible; revisa Recuperacion antes de aplicar: '+$s.BackupPath)}
+  if($s.Recovered){throw ('Diario recuperado desde copia anterior; restaura antes de aplicar: '+$s.SessionId)}
+  if($s.Status -eq 'Pending'){throw 'Hay una ejecucion anterior incompleta. Usa Recuperacion antes de comenzar otra.'}
  }
 }
-function Write-Report($phase,$message){
+function Write-Report($phase,$message,[int]$ResultCode=0){
  $changed=if($null -ne $script:journal){@($script:journal.Registry | Where-Object {$_.State -eq 'Applied'}).Count}else{0}
  $removed=if($null -ne $script:journal){@($script:journal.Apps | Where-Object {$_.State -eq 'Removed'}).Count}else{0}
  $already=@()
@@ -64,7 +63,9 @@ function Write-Report($phase,$message){
   else{$power='Alto rendimiento ya estaba activo'}
  }
  $summary=[ordered]@{
-  Version='0.9.0';Session=$SessionId;Operation=$Action;Status=$phase;Message=$message
+  Version='0.9.0';Session=$SessionId;Operation=$Action;Status=$phase;Message=$message;ExitCode=$ResultCode
+  RestoredSession=$(if(Get-Variable restoredSession -Scope Script -ErrorAction SilentlyContinue){$script:restoredSession}else{$null})
+  RestartRequired=$(if(Get-Variable restartRequired -Scope Script -ErrorAction SilentlyContinue){[bool]$script:restartRequired}else{$false})
   AlreadyConfigured=$already;PowerOutcome=$power
   PreferencesApplied=$changed;TempBytesDeleted=$script:freed;AppsRemoved=$removed
   EngineSeconds=[math]::Round($script:startedAt.Elapsed.TotalSeconds,3);JournalWrites=$script:journalWrites;Warnings=$script:warnings;Rollback=$script:rollback;Steps=$script:steps

@@ -25,17 +25,21 @@ function WB-SetState($a,$state){
 function WB-InvokeNative($item,$session){
  if($env:WB_FAIL -eq '1'){throw 'Native failure'}
  [IO.File]::WriteAllText((Join-Path $session 'native.called'),$item.Definition.Id)
+ if($env:WB_RESTART -eq 'Native'){return [pscustomobject]@{ExitCode=3010;RestartRequired=$true}}
+ if($env:WB_RESTART -eq 'Feature'){return [pscustomobject]@{RestartNeeded='Yes'}}
  return 'Mock native result'
 }
 '''
 src=src.replace(". (Join-Path $PSScriptRoot 'ActionsCore.ps1')",". (Join-Path $PSScriptRoot 'ActionsCore.ps1')\n"+mock)
 with tempfile.TemporaryDirectory(prefix='wb-action-pipeline-') as tmp:
  root=Path(tmp);app=root/'app';shutil.copytree(BASE,app);(app/'ActionsEngine.ps1').write_text(src,encoding='utf-8-sig')
- def run(folder,mode,actions,**extra):
+ def run(folder,mode,actions,restore_id=None,**extra):
   data=root/folder;data.mkdir(exist_ok=True)
   sid=str(uuid.uuid4());plan=data/'request.json';plan.write_text(json.dumps({'Schema':1,'Actions':actions}))
   env=dict(os.environ,OS='Windows_NT',PROCESSOR_ARCHITECTURE='AMD64',COMPUTERNAME='TEST-PC',LOCALAPPDATA=str(data),**extra)
-  r=subprocess.run([PS,'-NoProfile','-File',str(app/'ActionsEngine.ps1'),'-Mode',mode,'-SessionId',sid,'-PlanFile',str(plan)],env=env,capture_output=True,text=True)
+  command=[PS,'-NoProfile','-File',str(app/'ActionsEngine.ps1'),'-Mode',mode,'-SessionId',sid,'-PlanFile',str(plan)]
+  if restore_id:command+=['-RestoreSessionId',restore_id]
+  r=subprocess.run(command,env=env,capture_output=True,text=True)
   session=data/'WinBoost'/'OptimizerV03'/'Advanced'/sid
   summary=json.loads((session/'summary.json').read_text()) if (session/'summary.json').exists() else None
   return r,summary,session,data
@@ -49,7 +53,7 @@ with tempfile.TemporaryDirectory(prefix='wb-action-pipeline-') as tmp:
  print('PASS: unsupported plan blocks before mutation')
  r,s,p,d=run('failed','Apply',actions+[{'Id':'Hibernation','Choice':'Desactivar'}],WB_FAIL='1');assert r.returncode!=0;assert all(not x['Exists'] for x in json.loads((d/'store.json').read_text()).values());assert s['ManualReview']==['Hibernation']
  print('PASS: native failure rollback and manual review record')
- r,s,p,d=run('cancel','Apply',actions,WB_CANCEL='1');assert s['Status']=='Cancelled';assert all(not x['Exists'] for x in json.loads((d/'store.json').read_text()).values())
+ r,s,p,d=run('cancel','Apply',actions,WB_CANCEL='1');assert r.returncode==3 and s['ExitCode']==3 and s['Status']=='Cancelled';assert all(not x['Exists'] for x in json.loads((d/'store.json').read_text()).values())
  print('PASS: cooperative stop and rollback')
  r,s,p,d=run('assisted','Apply',[{'Id':'DNSoverHTTPS','Choice':'Abrir controles de Windows'}]);assert r.returncode==0;assert s['Results'][0]['Status']=='OpenedForManualAction'
  print('PASS: assisted action never reported as applied')
@@ -57,3 +61,34 @@ with tempfile.TemporaryDirectory(prefix='wb-action-pipeline-') as tmp:
  r,s,p,d=run('crash','Apply',actions);assert r.returncode!=0;assert 'incompleta' in s['Message']
  r,s,p,d=run('crash','Restore',[]);assert r.returncode==0;assert all(not x['Exists'] for x in json.loads((d/'store.json').read_text()).values())
  print('PASS: abrupt crash, block next apply, restore persisted journal')
+
+ for result_type in ['Native','Feature']:
+  r,s,p,d=run('restart'+result_type,'Apply',[{'Id':'Hibernation','Choice':'Desactivar'}],WB_RESTART=result_type)
+  assert r.returncode==0 and s['RestartRequired'] and s['Results'][0]['RestartRequired'],(r.stderr,s)
+  assert 'Reinicio requerido' in (p/'report.html').read_text()
+ print('PASS: native 3010 and feature restart signals reach summary and HTML')
+ r,s,first,d=run('specific','Apply',actions[:1]);assert r.returncode==0
+ r,s,second,d=run('specific','Apply',actions[1:]);assert r.returncode==0
+ r,s,p,d=run('specific','Restore',[],restore_id=first.name)
+ assert r.returncode==0 and s['RestoredSession']==first.name,(r.stderr,s)
+ current=json.loads((d/'store.json').read_text())
+ assert not current['AdvertisingID']['Exists'] and current['TailoredExperiences']['Exists']
+ r,s,p,d=run('specific','Restore',[],restore_id='../../outside')
+ assert r.returncode==1 and current==json.loads((d/'store.json').read_text())
+ print('PASS: restore chosen session without touching newer independent changes; reject invalid ID')
+ # Keep one damaged journal, recover a healthy session, and block fresh apply.
+ (first/'backup.json').write_text('{broken');(first/'backup.json.bak').unlink(missing_ok=True)
+ r,s,p,d=run('specific','Restore',[],restore_id=second.name)
+ assert r.returncode==2 and s['RestoredSession']==second.name and s['Warnings']==1,(r.stderr,s)
+ r,s,p,d=run('specific','Apply',actions)
+ assert r.returncode==1 and 'ilegible' in s['Message']
+ assert (first/'backup.json').read_text()=='{broken'
+ print('PASS: corrupt backup is visible, unrelated restore works with warning, apply fails closed')
+ # Missing/corrupt primary with a valid .bak can be explicitly recovered.
+ r,s,crashed,d=run('fallback','Apply',actions,WB_CRASH='1');assert r.returncode==99
+ import shutil
+ shutil.copyfile(crashed/'backup.json',crashed/'backup.json.bak')
+ (crashed/'backup.json').unlink()
+ r,s,p,d=run('fallback','Restore',[],restore_id=crashed.name)
+ assert r.returncode==2 and s['Status']=='Restored' and not any(v['Exists'] for v in json.loads((d/'store.json').read_text()).values()),(r.stderr,s)
+ print('PASS: recover interrupted action session from backup when primary is missing')

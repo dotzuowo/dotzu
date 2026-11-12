@@ -13,6 +13,20 @@ $window.Add_ContentRendered({
   if($null -eq $logo -or $logo.PixelWidth -ne 384 -or $logo.PixelHeight -ne 384){throw 'El logo oficial no se cargo desde el paquete.'}
   $ui.NavModules.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   if($ui.ModulesPage.Visibility -ne 'Visible'){throw 'Navigation failed'}
+  # Seed only temporary JSON journals; verify mixed history and exact worker routing.
+  $testRoot=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
+  $restoreId=[guid]::NewGuid().ToString()
+  $journalDir=Join-Path (Join-Path $testRoot 'Advanced') $restoreId
+  [void][IO.Directory]::CreateDirectory($journalDir)
+  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+  [IO.File]::WriteAllText((Join-Path $journalDir 'backup.json'),([pscustomobject]@{Schema=4;Sid=$sid;Computer=$env:COMPUTERNAME;Date=(Get-Date).ToString('o');Status='Pending';Entries=@()} | ConvertTo-Json))
+  $ui.NavRecovery.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+  $item=@($ui.HistoryList.Items | Where-Object {$_.SessionId -eq $restoreId})
+  if($item.Count -ne 1 -or $item[0].Engine -ne 'Advanced'){throw 'Advanced history entry missing'}
+  $ui.HistoryList.SelectedItem=$item[0]
+  function script:Start-Run($action,[string]$restoreId='',[bool]$advanced=$false){$script:capturedRestore=[pscustomobject]@{Action=$action;Id=$restoreId;Advanced=$advanced}}
+  $ui.RestoreHistory.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
+  if($script:capturedRestore.Action -ne 'Restore' -or $script:capturedRestore.Id -ne $restoreId -or -not $script:capturedRestore.Advanced){throw 'Selected advanced restore did not route to exact session'}
   $ui.NavHome.RaiseEvent([Windows.RoutedEventArgs]::new([Windows.Controls.Button]::ClickEvent))
   $window.Width=1320;$window.Height=850
   $ui.Profile.SelectedIndex=1
