@@ -1,0 +1,69 @@
+name: WinBoost validation
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check embedded sources and package checksum
+        run: python tools/build_package.py --check
+      - name: Parse scripts and run isolated contracts
+        shell: pwsh
+        run: |
+          ./tests/Test-Syntax.ps1
+          ./src/v0.9/Tests/Engine.Tests.ps1
+          ./src/v0.9/Tests/Actions.Tests.ps1
+          ./src/v0.9/Tests/Sessions.Tests.ps1
+      - name: Run mocked worker and entry scenarios
+        shell: bash
+        run: |
+          export WINBOOST_TEST_PWSH="$(command -v pwsh)"
+          python src/v0.9/Tests/pipeline_tests.py
+          python src/v0.9/Tests/actions_pipeline_tests.py
+          python src/v0.9/Tests/entry_tests.py
+          python tests/package_entry_tests.py
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check package sources
+        run: python tools/build_package.py --check
+      - name: Validate PowerShell 5.1 and recovery contracts
+        shell: powershell
+        run: |
+          & ./tests/Test-Syntax.ps1
+          & ./src/v0.9/Tests/Engine.Tests.ps1
+          & ./src/v0.9/Tests/Actions.Tests.ps1
+          & ./src/v0.9/Tests/Sessions.Tests.ps1
+      - name: Apply and restore Gaming on disposable runner
+        shell: powershell
+        run: ./tests/Test-Gaming.ps1 -Source src/v0.9
+      - name: Render and exercise WPF presentation
+        shell: powershell
+        run: ./tests/Test-Presentation.ps1 -Source src/v0.9 -OutputDirectory preview
+      - name: Exercise packaged web dispatch without Windows mutations
+        shell: powershell
+        run: ./tests/Test-WebLauncher.ps1 -File ./WinBoost.ps1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: WinBoost-validation-preview
+          path: preview
+          if-no-files-found: ignore

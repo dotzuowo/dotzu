@@ -3,12 +3,15 @@
 param(
  [ValidateSet('Apply','Restore','Preview')][string]$Action='Preview',
  [string]$RequestFile,
- [Parameter(Mandatory=$true)][string]$SessionId
+ [Parameter(Mandatory=$true)][string]$SessionId,
+ [string]$RestoreSessionId
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 $parsedId=[guid]::Empty
 if(-not [guid]::TryParseExact($SessionId,'D',[ref]$parsedId)){throw 'Identificador invalido.'}
+. (Join-Path $PSScriptRoot 'Sessions.ps1')
+if($RestoreSessionId -and $Action -ne 'Restore'){throw 'RestoreSessionId solo se admite en Restore.'}
 $root=Join-Path $env:LOCALAPPDATA 'WinBoost\OptimizerV03'
 $run=Join-Path $root $SessionId
 New-Item -ItemType Directory -Path $run -Force | Out-Null
@@ -16,6 +19,7 @@ $logPath=Join-Path $run 'activity.log'
 $statusPath=Join-Path $run 'status.json'
 $journalPath=Join-Path $run 'backup.json'
 [object[]]$catalog=Get-Content (Join-Path $PSScriptRoot 'Catalog.json') -Raw | ConvertFrom-Json
+$script:restartRequired=$false;$script:restoredSession=$null;
 $script:warnings=0;$script:step=0;$script:total=1;$script:freed=0L
 $script:journalWrites=0;$script:startedAt=[Diagnostics.Stopwatch]::StartNew();$script:inventoryCache=$null;
 $script:steps=@();$script:journal=$null;$script:rollback='No solicitado';$script:cancelPath=Join-Path $run 'cancel.request'
@@ -102,7 +106,8 @@ function Native($exe,[string[]]$arguments){
  $out=& $exe @arguments 2>&1 | Out-String
  $code=$LASTEXITCODE
  if($out){Add-Content -LiteralPath $logPath -Value $out -Encoding UTF8}
- if($code -ne 0){throw "$exe devolvio $code"}
+ if($code -eq 3010){$script:restartRequired=$true}
+ elseif($code -ne 0){throw "$exe devolvio $code"}
  return $out
 }
 function Power-Guid {
@@ -301,27 +306,35 @@ function Install-Runtimes {
   $code=$LASTEXITCODE
   Add-Content -LiteralPath $logPath -Value $out -Encoding UTF8
   # 0x8A15002B = no hay actualizacion aplicable; no es un fallo de instalacion.
-  if($code -ne 0 -and $code -ne -1978335189){$script:warnings++;Log "WinGet $id : codigo $code; revisa salida." 'WARNING'}
+  if($code -eq 3010){$script:restartRequired=$true}
+  if($code -notin @(0,3010) -and $code -ne -1978335189){$script:warnings++;Log "WinGet $id : codigo $code; revisa salida." 'WARNING'}
  }
 }
 function Repair-Windows {
  $ps="$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
  $argsList=@('-NoProfile','-ExecutionPolicy','Bypass','-File',('"'+(Join-Path $PSScriptRoot 'Repair.ps1')+'"'),'-LogFile',('"'+(Join-Path $run 'repair.log')+'"'))
  $p=Start-Process -FilePath $ps -Verb RunAs -ArgumentList $argsList -Wait -PassThru
+ if($p.ExitCode -eq 3010){$script:restartRequired=$true;Log 'Reparacion requiere reinicio antes de continuar con SFC.';return}
  if($p.ExitCode -ne 0){throw "Reparacion termino con codigo $($p.ExitCode). Consulta repair.log."}
  Log 'DISM y SFC finalizaron. Consulta repair.log para el diagnostico; no es una garantia de sistema sano.'
 }
-function Restore-Latest([string]$BackupPath){
+function Restore-Latest([string]$BackupPath,[string]$TargetSessionId=''){
  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
- $files=if($BackupPath){@(Get-Item -LiteralPath $BackupPath)}else{@(Get-ChildItem -LiteralPath $root -Filter backup.json -Recurse)}
  $target=$null
- foreach($file in $files){
-  try{$j=Read-Journal $file.FullName}catch{$script:warnings++;Log ('Respaldo ilegible: '+$file.FullName) 'WARNING';continue}
-  if($j.Schema -eq 3 -and $j.Sid -eq $sid -and $j.Computer -eq $env:COMPUTERNAME -and $j.Status -ne 'Restored'){
-   if($null -eq $target -or [datetime]$j.Date -gt [datetime]$script:journal.Date){$target=$file;$script:journal=$j}
+ if($BackupPath){
+  $target=Get-Item -LiteralPath $BackupPath;$script:journal=Read-Journal $BackupPath
+ }else{
+  $sessions=@(Get-WBSessionHistory $root $sid $env:COMPUTERNAME)
+  foreach($s in $sessions | Where-Object {$_.Error}){$script:warnings++;Log ('Respaldo ilegible conservado: '+$s.BackupPath) 'WARNING'}
+  $selected=Get-WBRestoreSession $sessions $TargetSessionId 'Base'
+  if($null -ne $selected){
+   $target=[pscustomobject]@{FullName=$selected.BackupPath;Directory=[pscustomobject]@{Name=$selected.SessionId}}
+   $script:journal=$selected.Journal
+   if($selected.Recovered){$script:warnings++;Log 'Se uso la copia anterior del diario.' 'WARNING'}
   }
  }
  if($null -eq $target){Log 'No hay sesiones pendientes de restauracion.';return}
+ $script:restoredSession=$target.Directory.Name
  Log "Restaurando $($target.Directory.Name)"
  $conflicts=0
  $entries=@($script:journal.Registry);[array]::Reverse($entries)
@@ -371,7 +384,7 @@ try{
  if(-not $held){throw 'Otra ejecucion WinBoost esta trabajando en este usuario.'}
  if($Action -eq 'Restore'){
   $script:total=1
-  Stage 'Restaurar ultima sesion pendiente' {Restore-Latest}
+  Stage 'Restaurar sesion base' {Restore-Latest '' $RestoreSessionId} $true
  }else{
   if(-not $RequestFile){throw 'Falta la seleccion de modulos.'}
   $cfg=Validate-Config (Get-Content -LiteralPath $RequestFile -Raw -Encoding UTF8 | ConvertFrom-Json)
@@ -425,7 +438,8 @@ try{
   }catch{$script:rollback='No se pudo completar la recuperacion: '+$_.Exception.Message;$script:warnings++;Log $script:rollback 'WARNING'}
  }
 }finally{
- try{Write-Report $phase $message}catch{Log ('No se pudo crear el informe: '+$_.Exception.Message) 'ERROR';$exitCode=1;$phase='Failed';$message='No se pudo guardar el informe final. Consulta el registro.'}
+ if($script:restartRequired){$message+=' Reinicio requerido; WinBoost no reinicia automaticamente.'}
+ try{Write-Report $phase $message $exitCode}catch{Log ('No se pudo crear el informe: '+$_.Exception.Message) 'ERROR';$exitCode=1;$phase='Failed';$message='No se pudo guardar el informe final. Consulta el registro.'}
  try{Status $phase $message 100;Log "Finalizado: $phase"}catch{Write-Error $_ -ErrorAction Continue;$exitCode=1}
  if($held){$mutex.ReleaseMutex()};if($null -ne $mutex){$mutex.Dispose()}
 }

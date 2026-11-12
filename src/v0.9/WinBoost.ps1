@@ -13,11 +13,16 @@ param(
  [ValidateSet('Rapido','Gaming','Mantenimiento')][string]$Profile='Rapido',
  [string]$PresetPath,
  [switch]$OpenReport,
- [string]$ExpectedSid
+ [string]$ExpectedSid,
+ [string]$RestoreSessionId
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 try {
+ if($RestoreSessionId){
+  $restoreGuid=[guid]::Empty
+  if($Mode -notin @('Restore','ActionsRestore') -or -not [guid]::TryParseExact($RestoreSessionId,'D',[ref]$restoreGuid)){throw 'RestoreSessionId requiere un GUID y modo Restore o ActionsRestore.'}
+ }
  if($env:OS -ne 'Windows_NT'){throw 'WinBoost requiere Windows 11 x64.'}
  $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value
  if($ExpectedSid -and $sid -ne $ExpectedSid){throw 'Usa la misma cuenta al elevar permisos. Se cancelo para no modificar el perfil de otro usuario.'}
@@ -33,6 +38,7 @@ try {
   $command='& '+("'"+$PSCommandPath.Replace("'","''")+"'")+' -Mode '+$Mode+' -ExpectedSid '+("'"+$sid+"'")
   if($PSBoundParameters.ContainsKey('Profile')){$command+=' -Profile '+$Profile}
   if($PresetPath){$command+=' -PresetPath '+("'"+$PresetPath.Replace("'","''")+"'")}
+  if($RestoreSessionId){$command+=' -RestoreSessionId '+$RestoreSessionId}
   if($OpenReport){$command+=' -OpenReport'}
   $command+='; exit $LASTEXITCODE'
   $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
@@ -51,6 +57,7 @@ try {
   $id=[guid]::NewGuid().ToString()
   $engine=Join-Path $PSScriptRoot 'ActionsEngine.ps1'
   $runnerArgs=@('-NoProfile','-STA','-ExecutionPolicy','Bypass','-File',$engine,'-Mode',$actionMode,'-SessionId',$id)
+  if($RestoreSessionId){$runnerArgs+=@('-RestoreSessionId',$RestoreSessionId)}
   if($PresetPath){$runnerArgs+=@('-PlanFile',$PresetPath)}
   & $nativePS @runnerArgs
   $resultCode=$LASTEXITCODE
@@ -87,6 +94,7 @@ try {
  Write-Host "`n WINBOOST / POWERSHELL 0.9" -ForegroundColor Cyan
  Write-Host " Modo: $Mode | Perfil: $Profile"
  Write-Host " Informe y registro: $session`n"
+ if($RestoreSessionId){$arguments+=@('-RestoreSessionId',$RestoreSessionId)}
  $worker=Start-Process -FilePath $nativePS -ArgumentList $arguments -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $session 'stdout.log') -RedirectStandardError (Join-Path $session 'stderr.log')
  $last=''
  while(-not $worker.HasExited){

@@ -12,3 +12,9 @@ Ejecutado en Linux con PowerShell 7.4.6, sin modificar un Windows real:
 Limitaciones: el AST se analiza con PowerShell 7.4, no con 5.1. XML valido no equivale a una prueba visual WPF ni a validar sus eventos. UAC real, API de Registro, Defender, servicios, DISM, WinGet, red, almacenamiento y otras acciones nativas requieren pruebas en Windows 11. Se ha probado la orquestacion y el contrato de estados, no sus efectos reales.
 
 121 familias en catalogo; 89 tienen accion programada, 32 abren flujos asistidos. No afirmar 121 automatizadas ni equivalencia total de variantes. Consultar COBERTURA.md.
+
+Actualizacion de validacion — 12 de noviembre de 2026:
+- El commit base 2eef83c tiene workflows Gaming profile y WinBoost desktop preview exitosos en Windows; corrige la limitacion anterior sobre ausencia total de pruebas 5.1/WPF. Test-Gaming desactiva la prueba de energia, y el renderizado no prueba toda la interaccion ni UAC.
+- El primer lote agrega CI en PR/push, parseo 5.1, contratos de ambos motores y paquete-fuentes; pruebas de historial mixto y restauracion por GUID; corrupcion/copia anterior; reinicio requerido y codigos 0/1/2/3; conservacion de consola al ejecutar el paquete con iex.
+- Las pruebas de adaptadores simulados se ejecutan sin mutaciones de Windows. Los jobs Windows ejecutan Gaming en runner desechable y WPF; la CI de cada commit es la fuente de verdad del resultado de ese commit.
+- No se demuestra aumento de FPS. No se han validado todos los efectos de Defender, servicios, DISM, WinGet, energia, UAC real ni equipos de clientes.

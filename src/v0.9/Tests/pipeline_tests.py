@@ -33,7 +33,7 @@ function Write-Reg($path,$name,$value,$kind){
 }
 function Remove-Reg($path,$name){$script:mockStore.Remove($path+'|'+$name);Save-Json $script:mockStore $script:mockPath}
 function Inventory($file){$v=@{Mock=$true;Disks=@();Errors=@()};Save-Json $v $file;return $v}
-function Apply-Power {Log 'MOCK energia'}
+function Apply-Power {if($env:WB_TEST_RESTART -eq '1'){$script:restartRequired=$true};Log 'MOCK energia'}
 function Clean-Temp {
  $script:freed=4096;Log 'MOCK limpieza'
  if($env:WB_TEST_CANCEL_CLEANUP -eq '1'){[IO.File]::WriteAllText($script:cancelPath,'Stop');Check-Cancellation}
@@ -46,7 +46,7 @@ DEFAULT=dict(Privacy=True,Captures=False,Mouse=False,Power=False,Cleanup=False,A
 
 with tempfile.TemporaryDirectory(prefix='winboost-pipeline-') as folder:
     temp=Path(folder); app=temp/'app'; app.mkdir()
-    for name in ['Catalog.json','ExtraFunctions.ps1']:
+    for name in ['Catalog.json','ExtraFunctions.ps1','Sessions.ps1']:
         shutil.copy(BASE/name, app/name)
     source=(BASE/'Engine.ps1').read_text(encoding='utf-8-sig')
     source=source.replace('[Security.Principal.WindowsIdentity]::GetCurrent().User.Value',"'TEST-SID'")
@@ -86,6 +86,10 @@ with tempfile.TemporaryDirectory(prefix='winboost-pipeline-') as folder:
     r,s,summary,_=execute(w,action='Restore')
     check(r.returncode==0 and not store(w),'Restaurar valores de sesion original',r)
     print('PASS: pipeline Apply, repeticion y restauracion por orden')
+    w=world('restart');r,s,summary,run=execute(w,config=dict(DEFAULT,Power=True),WB_TEST_RESTART=1)
+    check(r.returncode==0 and summary['RestartRequired'] and 'Reinicio requerido' in summary['Message'],'Reinicio debe comunicarse sin fallo falso',r)
+    check('Reinicio requerido' in (run/'report.html').read_text(),'Informe HTML debe informar reinicio')
+    print('PASS: reinicio del motor base comunicado en resumen e informe')
 
     w=world('failed');r,s,summary,run=execute(w,WB_TEST_FAIL_WRITE=3)
     check(r.returncode==1 and s['Phase']=='Failed' and not store(w),'Fallo critico debe revertir cambios parciales',r)
@@ -134,4 +138,4 @@ with tempfile.TemporaryDirectory(prefix='winboost-pipeline-') as folder:
     r,s,summary,_=execute(w,action='Restore')
     check(r.returncode==0 and not store(w),'Diario agrupado debe recuperar cambios incluso sin finally',r)
     print('PASS: interrupcion abrupta entre avances y recuperacion posterior')
-    print('11 escenarios del pipeline verificados con adaptadores simulados.')
+    print('12 escenarios del pipeline verificados con adaptadores simulados.')

@@ -2,10 +2,13 @@ name: Gaming profile
 on:
   push:
     paths:
-      - 'src/v0.9/Presets/Gaming.json'
-      - 'src/v0.9/Engine.ps1'
-      - 'src/v0.9/ExtraFunctions.ps1'
-      - 'tests/Test-Gaming.ps1'
+      - 'src/v0.9/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'WinBoost.ps1'
+      - 'install.ps1'
+      - '.github/workflows/**'
+  pull_request:
   workflow_dispatch:
 permissions:
   contents: read

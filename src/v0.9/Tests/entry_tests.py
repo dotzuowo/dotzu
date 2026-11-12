@@ -42,12 +42,13 @@ with tempfile.TemporaryDirectory(prefix='wb-entry-') as folder:
  print('PASS: 3 perfiles, plan enviado al motor y codigo de salida preservado')
  import base64
  for mode in ['GUI','Restore','Apply']:
-  args=['-Mode',mode]+(['-Profile','Gaming'] if mode=='Apply' else [])
+  args=['-Mode',mode]+(['-RestoreSessionId','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'] if mode=='Restore' else [])+(['-Profile','Gaming'] if mode=='Apply' else [])
   r,data,spawn=run('relay'+mode,args,admin='0')
   assert r.returncode==2 and spawn['Verb']=='RunAs',(r.stdout,r.stderr)
   command=base64.b64decode(spawn['Args'][-1]).decode('utf-16-le')
   assert "app with '' apostrophe" in command and "-ExpectedSid 'S-TEST'" in command
   assert ('-Profile' in command)==(mode=='Apply')
+  assert ('-RestoreSessionId aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa' in command)==(mode=='Restore')
  print('PASS: elevacion, rutas con espacios/apostrofes y argumentos GUI/Restore/Apply')
  r,data,spawn=run('identity',['-Mode','Apply','-ExpectedSid','OTHER'])
  assert r.returncode==1 and spawn is None
@@ -56,8 +57,9 @@ with tempfile.TemporaryDirectory(prefix='wb-entry-') as folder:
  r,data,spawn=run('bad',['-Mode','Apply','-PresetPath',str(bad)])
  assert r.returncode==1 and spawn is None
  print('PASS: perfil invalido bloqueado antes de iniciar motor')
- r,data,spawn=run('restore',['-Mode','Restore'])
+ r,data,spawn=run('restore',['-Mode','Restore','-RestoreSessionId','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'])
  assert r.returncode==2 and not list(data.rglob('request.json'))
+ assert spawn['Args'][spawn['Args'].index('-RestoreSessionId')+1]=='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
  print('PASS: restauracion sin perfil ni solicitud de ajustes')
 
 # Advanced runner forwards restore without an empty PlanFile argument.
@@ -71,11 +73,14 @@ with tempfile.TemporaryDirectory(prefix='wb-actions-entry-') as folder:
  for mode in ['ActionsRestore','ActionsPreview','ActionsApply']:
   args=[PS,'-NoProfile','-File',str(app/'WinBoost.ps1'),'-Mode',mode]
   plan=root/"plan with ' quote.json";plan.write_text('{"Schema":1,"Actions":[]}')
+  if mode=='ActionsRestore':args+=['-RestoreSessionId','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']
   if mode!='ActionsRestore':args+=['-PresetPath',str(plan)]
   r=subprocess.run(args,env=env,capture_output=True,text=True)
   assert r.returncode==2,(mode,r.stderr,r.stdout)
   forwarded=json.loads((data/'native.json').read_text())
   assert forwarded[forwarded.index('-Mode')+1]==mode.replace('Actions','')
-  if mode=='ActionsRestore':assert '-PlanFile' not in forwarded
+  if mode=='ActionsRestore':
+   assert '-PlanFile' not in forwarded
+   assert forwarded[forwarded.index('-RestoreSessionId')+1]=='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
   else:assert forwarded[forwarded.index('-PlanFile')+1]==str(plan)
  print('PASS: advanced modes, exact paths and restore without empty argument')
